@@ -70,21 +70,31 @@ function createMockReactotron() {
   const valuesResponses: Array<{ path: string | null; value: any }> = [];
   const valuesChanges: Array<Array<{ path: string; value: any }>> = [];
 
-  return {
+  const client = {
     keysResponses,
     valuesResponses,
     valuesChanges,
-    send(_type: string, _payload: unknown) {},
+    send(type: string, payload: any) {
+      if (type === 'state.keys.response') {
+        keysResponses.push({ path: payload?.path || null, keys: payload?.keys });
+      } else if (type === 'state.values.response') {
+        valuesResponses.push({ path: payload?.path || null, value: payload?.value });
+      } else if (type === 'state.values.change') {
+        valuesChanges.push(payload?.changes);
+      }
+    },
     stateKeysResponse(path: string | null, keys: any) {
-      keysResponses.push({ path, keys });
+      this.send('state.keys.response', { path, keys });
     },
     stateValuesResponse(path: string | null, value: any) {
-      valuesResponses.push({ path, value });
+      this.send('state.values.response', { path, value });
     },
     stateValuesChange(changes: Array<{ path: string; value: any }>) {
-      valuesChanges.push(changes);
+      this.send('state.values.change', { changes });
     },
   };
+
+  return client;
 }
 
 // ---------------------------------------------------------------------------
@@ -343,6 +353,21 @@ describe('createStateHandler', () => {
 
       expect(mockReactotron.valuesChanges).toHaveLength(1);
     });
+
+    it('should handle empty/root path subscription by sending merged root value', () => {
+      mockMMKV.set('theme', 'light');
+
+      const handled = handler.onCommand({
+        type: 'state.values.subscribe',
+        payload: { paths: [''] },
+      });
+
+      expect(handled).toBe(true);
+      expect(mockReactotron.valuesChanges).toHaveLength(1);
+      expect(mockReactotron.valuesChanges[0]).toEqual([
+        { path: '', value: { mmkv: { theme: 'light' } } },
+      ]);
+    });
   });
 
   describe('stopSubscriptions', () => {
@@ -426,6 +451,20 @@ describe('createStateHandler', () => {
       mockReactotron.stateKeysResponse(null, ['auth', 'mmkv']);
 
       expect(mockReactotron.keysResponses[0].keys).toEqual(['auth', 'mmkv']);
+    });
+
+    it('should merge MMKV state into peer state values changes at root', () => {
+      mockMMKV.set('theme', 'dark');
+
+      mockReactotron.stateValuesChange([{ path: '', value: { auth: { loggedIn: true } } }]);
+
+      expect(mockReactotron.valuesChanges).toHaveLength(1);
+      expect(mockReactotron.valuesChanges[0]).toHaveLength(1);
+      expect(mockReactotron.valuesChanges[0][0].path).toBe('');
+      expect(mockReactotron.valuesChanges[0][0].value).toEqual({
+        auth: { loggedIn: true },
+        mmkv: { theme: 'dark' },
+      });
     });
   });
 });
