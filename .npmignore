@@ -1,0 +1,28 @@
+# Source code and tests
+src/
+__tests__/
+
+# Configuration files
+tsconfig.json
+tsconfig.build.json
+jest.config.js
+.github/
+.vscode/
+.idea/
+.gitignore
+.npmignore
+
+# Build and coverage outputs
+coverage/
+.nyc_output/
+*.log
+
+# Dependencies
+node_modules/
+
+# Local packages/tarballs
+*.tgz
+
+# Examples / Demos
+example/
+examples/
