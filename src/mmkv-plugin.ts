@@ -86,6 +86,8 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
     onConnect() {
       reactotronRef = reactotron;
 
+      stateHandler.setupMonkeyPatch(reactotron);
+
       // Start listening for MMKV changes (for State tab subscriptions)
       stateHandler.startSubscriptions();
 
@@ -107,6 +109,7 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
     },
 
     onDisconnect() {
+      stateHandler.restoreMonkeyPatch(reactotronRef);
       stateHandler.stopSubscriptions();
       reactotronRef = null;
     },

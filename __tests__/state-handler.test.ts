@@ -102,6 +102,7 @@ describe('createStateHandler', () => {
       { namespace: 'mmkv', storage: mockMMKV },
       () => mockReactotron
     );
+    handler.setupMonkeyPatch(mockReactotron);
   });
 
   describe('state.keys.request', () => {
@@ -147,6 +148,25 @@ describe('createStateHandler', () => {
       });
 
       expect(mockReactotron.keysResponses[0].keys).toBeUndefined();
+    });
+
+    it('should return namespace when path is null (root request)', () => {
+      jest.useFakeTimers();
+      mockMMKV.set('key', 'value');
+
+      const handled = handler.onCommand({
+        type: 'state.keys.request',
+        payload: { path: null },
+      });
+
+      expect(handled).toBe(false);
+
+      jest.advanceTimersByTime(30);
+
+      expect(mockReactotron.keysResponses).toHaveLength(1);
+      expect(mockReactotron.keysResponses[0].path).toBeNull();
+      expect(mockReactotron.keysResponses[0].keys).toEqual(['mmkv']);
+      jest.useRealTimers();
     });
 
     it('should not handle paths outside the namespace', () => {
@@ -230,6 +250,27 @@ describe('createStateHandler', () => {
       });
 
       expect(mockReactotron.valuesResponses[0].value).toBe('b');
+    });
+
+    it('should return wrapped namespace state when path is null (root values request)', () => {
+      jest.useFakeTimers();
+      mockMMKV.set('theme', 'dark');
+
+      const handled = handler.onCommand({
+        type: 'state.values.request',
+        payload: { path: null },
+      });
+
+      expect(handled).toBe(false);
+
+      jest.advanceTimersByTime(30);
+
+      expect(mockReactotron.valuesResponses).toHaveLength(1);
+      expect(mockReactotron.valuesResponses[0].path).toBeNull();
+      expect(mockReactotron.valuesResponses[0].value).toEqual({
+        mmkv: { theme: 'dark' },
+      });
+      jest.useRealTimers();
     });
   });
 
@@ -356,6 +397,35 @@ describe('createStateHandler', () => {
 
       expect(mockReactotron.keysResponses[0].path).toBe('storage');
       expect(mockReactotron.keysResponses[0].keys).toEqual(['key']);
+    });
+  });
+
+  describe('co-existence with Redux (monkey-patching)', () => {
+    it('should merge MMKV namespace into peer keys response at root', () => {
+      mockReactotron.stateKeysResponse(null, ['auth', 'settings']);
+
+      expect(mockReactotron.keysResponses).toHaveLength(1);
+      expect(mockReactotron.keysResponses[0].path).toBeNull();
+      expect(mockReactotron.keysResponses[0].keys).toEqual(['auth', 'settings', 'mmkv']);
+    });
+
+    it('should merge MMKV state into peer values response at root', () => {
+      mockMMKV.set('theme', 'dark');
+
+      mockReactotron.stateValuesResponse(null, { auth: { loggedIn: true } });
+
+      expect(mockReactotron.valuesResponses).toHaveLength(1);
+      expect(mockReactotron.valuesResponses[0].path).toBeNull();
+      expect(mockReactotron.valuesResponses[0].value).toEqual({
+        auth: { loggedIn: true },
+        mmkv: { theme: 'dark' },
+      });
+    });
+
+    it('should not double-merge if namespace key is already present', () => {
+      mockReactotron.stateKeysResponse(null, ['auth', 'mmkv']);
+
+      expect(mockReactotron.keysResponses[0].keys).toEqual(['auth', 'mmkv']);
     });
   });
 });

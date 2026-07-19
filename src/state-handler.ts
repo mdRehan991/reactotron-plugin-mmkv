@@ -49,6 +49,51 @@ export function createStateHandler(
   let subscribedPaths: string[] = [];
   let listener: { remove: () => void } | null = null;
 
+  let originalKeysResponse: any = null;
+  let originalValuesResponse: any = null;
+  let rootKeysResponded = false;
+  let rootValuesResponded = false;
+
+  function setupMonkeyPatch(reactotron: any) {
+    if (reactotron.stateKeysResponse && !originalKeysResponse) {
+      originalKeysResponse = reactotron.stateKeysResponse;
+      reactotron.stateKeysResponse = (path: string | null, keys: string[] | undefined, valid?: boolean) => {
+        if (!path && keys && Array.isArray(keys)) {
+          rootKeysResponded = true;
+          if (!keys.includes(namespace)) {
+            keys = [...keys, namespace];
+          }
+        }
+        originalKeysResponse.call(reactotron, path, keys, valid);
+      };
+    }
+
+    if (reactotron.stateValuesResponse && !originalValuesResponse) {
+      originalValuesResponse = reactotron.stateValuesResponse;
+      reactotron.stateValuesResponse = (path: string | null, value: unknown, valid?: boolean) => {
+        if (!path && value && typeof value === 'object' && !Array.isArray(value)) {
+          rootValuesResponded = true;
+          value = {
+            ...(value as Record<string, unknown>),
+            [namespace]: getFullState(),
+          };
+        }
+        originalValuesResponse.call(reactotron, path, value, valid);
+      };
+    }
+  }
+
+  function restoreMonkeyPatch(reactotron: any) {
+    if (originalKeysResponse && reactotron) {
+      reactotron.stateKeysResponse = originalKeysResponse;
+      originalKeysResponse = null;
+    }
+    if (originalValuesResponse && reactotron) {
+      reactotron.stateValuesResponse = originalValuesResponse;
+      originalValuesResponse = null;
+    }
+  }
+
   /**
    * Build the full MMKV state as a flat key→value object.
    */
@@ -148,17 +193,16 @@ export function createStateHandler(
         const resolved = resolvePath(path, 'keys');
 
         if (!resolved.handled) {
-          // Root request: we can't fully handle it, but we want to inject
-          // our namespace. We'll send a separate response for just our namespace.
-          // The Reactotron app will merge responses.
+          // Root keys request: if no other plugin (e.g. Redux) responds
+          // within 30ms, we respond ourselves with just our namespace.
+          // If another plugin responds, our monkey-patch will merge it.
           if (!path && reactotron.stateKeysResponse) {
-            // Don't intercept root — let reactotron-redux handle it.
-            // Our namespace will appear if the user also has a custom command.
-            // For standalone use (no Redux), we handle root ourselves.
-            const keys = storage.getAllKeys();
-            if (keys.length > 0) {
-              reactotron.stateKeysResponse(namespace, keys);
-            }
+            rootKeysResponded = false;
+            setTimeout(() => {
+              if (!rootKeysResponded && originalKeysResponse) {
+                originalKeysResponse.call(reactotron, path, [namespace]);
+              }
+            }, 30);
           }
           return false;
         }
@@ -177,9 +221,16 @@ export function createStateHandler(
         const resolved = resolvePath(path, 'values');
 
         if (!resolved.handled) {
-          // Root values request: send our namespace state
+          // Root values request: if no other plugin (e.g. Redux) responds
+          // within 30ms, we respond ourselves with our state.
+          // If another plugin responds, our monkey-patch will merge it.
           if (!path && reactotron.stateValuesResponse) {
-            reactotron.stateValuesResponse(namespace, getFullState());
+            rootValuesResponded = false;
+            setTimeout(() => {
+              if (!rootValuesResponded && originalValuesResponse) {
+                originalValuesResponse.call(reactotron, path, { [namespace]: getFullState() });
+              }
+            }, 30);
           }
           return false;
         }
@@ -271,6 +322,8 @@ export function createStateHandler(
     startSubscriptions,
     stopSubscriptions,
     sendSubscriptions,
+    setupMonkeyPatch,
+    restoreMonkeyPatch,
     // Exposed for testing
     _resolvePath: resolvePath,
     _getFullState: getFullState,
