@@ -9,6 +9,7 @@
 import {
   type MMKVInstance,
   type OperationType,
+  type ReactotronDisplay,
   OPERATION,
   EMOJI,
   SET_METHODS,
@@ -16,16 +17,6 @@ import {
   truncate,
   readRawValue,
 } from './utils';
-
-/** Minimal Reactotron interface for display logging. */
-interface ReactotronDisplay {
-  display(config: {
-    name: string;
-    value: unknown;
-    preview: string;
-    important?: boolean;
-  }): void;
-}
 
 export interface ProxyHandlerConfig {
   ignore: string[];
@@ -37,11 +28,11 @@ export interface ProxyHandlerConfig {
  * Creates a proxied MMKV instance and a log function bound to a mutable
  * Reactotron reference.
  */
-export function createProxiedStorage(
-  rawStorage: MMKVInstance,
+export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
+  rawStorage: MMKVInstance<T>,
   config: ProxyHandlerConfig,
   getReactotron: () => ReactotronDisplay | null
-): MMKVInstance {
+): MMKVInstance<T> {
   const { ignore, logReads, logContains } = config;
 
   // ---------------------------------------------------------------
@@ -74,9 +65,9 @@ export function createProxiedStorage(
   // ---------------------------------------------------------------
   // Proxy handler
   // ---------------------------------------------------------------
-  const handler: ProxyHandler<MMKVInstance> = {
+  const handler: ProxyHandler<MMKVInstance<T>> = {
     get(target, prop: string, receiver) {
-      const original = (target as any)[prop];
+      const original = (target as unknown as Record<string, Function>)[prop];
 
       // Only intercept function calls
       if (typeof original !== 'function') {
@@ -87,7 +78,7 @@ export function createProxiedStorage(
       if (SET_METHODS.has(prop)) {
         return function proxiedSet(
           key: string,
-          value: string | number | boolean | ArrayBuffer
+          value: string | number | boolean | T
         ) {
           if (!ignore.includes(key)) {
             const existed = target.contains(key);

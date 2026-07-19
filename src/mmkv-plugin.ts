@@ -8,27 +8,34 @@
  * Returns a Reactotron plugin and a proxied MMKV instance.
  */
 
-import { type MmkvPluginConfig, type MMKVInstance } from './utils';
+import {
+  type MmkvPluginConfig,
+  type MMKVInstance,
+  type ReactotronPluginInstance,
+} from './utils';
 import { createProxiedStorage } from './proxy-handler';
 import { createStateHandler } from './state-handler';
 
 /** What mmkvPlugin() returns. */
-export interface MmkvPluginResult {
+export interface MmkvPluginResult<T = ArrayBuffer | Uint8Array> {
   /**
    * The Reactotron plugin — pass to `Reactotron.use(plugin)`.
    */
-  plugin: (reactotron: any) => {
+  plugin: (reactotron: ReactotronPluginInstance) => {
     onConnect: () => void;
     onDisconnect: () => void;
-    onCommand: (cmd: { type: string; payload?: any }) => void;
-    features: Record<string, unknown>;
+    onCommand: (cmd: { type: string; payload?: { path?: string | null; paths?: string[] } }) => void;
+    features: {
+      mmkvGetState: () => Record<string, unknown>;
+      mmkvGetKeys: () => string[];
+    };
   };
 
   /**
    * The proxied MMKV instance — use this throughout your app.
    * All operations are intercepted and logged to Reactotron.
    */
-  storage: MMKVInstance;
+  storage: MMKVInstance<T>;
 }
 
 /**
@@ -46,7 +53,9 @@ export interface MmkvPluginResult {
  * export { storage as LocalStorage };
  * ```
  */
-export function mmkvPlugin(config: MmkvPluginConfig): MmkvPluginResult {
+export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
+  config: MmkvPluginConfig<T>
+): MmkvPluginResult<T> {
   const {
     storage: rawStorage,
     ignore = [],
@@ -56,7 +65,7 @@ export function mmkvPlugin(config: MmkvPluginConfig): MmkvPluginResult {
   } = config;
 
   // Mutable ref to the connected Reactotron instance
-  let reactotronRef: any = null;
+  let reactotronRef: ReactotronPluginInstance | null = null;
   const getReactotron = () => reactotronRef;
 
   // --- Proxy handler (timeline logging) ---
@@ -73,7 +82,7 @@ export function mmkvPlugin(config: MmkvPluginConfig): MmkvPluginResult {
   );
 
   // --- Reactotron plugin interface ---
-  const plugin = (reactotron: any) => ({
+  const plugin = (reactotron: ReactotronPluginInstance) => ({
     onConnect() {
       reactotronRef = reactotron;
 
@@ -102,7 +111,7 @@ export function mmkvPlugin(config: MmkvPluginConfig): MmkvPluginResult {
       reactotronRef = null;
     },
 
-    onCommand(cmd: { type: string; payload?: any }) {
+    onCommand(cmd: { type: string; payload?: { path?: string | null; paths?: string[] } }) {
       stateHandler.onCommand(cmd);
     },
 

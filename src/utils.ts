@@ -69,12 +69,42 @@ export const GET_METHODS = new Set([
  * Minimal interface for what we need from the MMKV instance.
  * Avoids importing the full react-native-mmkv type at runtime.
  */
-export interface MMKVInstance {
-  set(key: string, value: string | number | boolean | ArrayBuffer): void;
+export interface ReactotronDisplay {
+  display(config: {
+    name: string;
+    value: unknown;
+    preview: string;
+    important?: boolean;
+  }): void;
+}
+
+export interface ReactotronState {
+  send(type: string, payload: unknown): void;
+  stateKeysResponse?(
+    path: string | null,
+    keys: string[] | undefined,
+    valid?: boolean
+  ): void;
+  stateValuesResponse?(
+    path: string | null,
+    value: unknown,
+    valid?: boolean
+  ): void;
+  stateValuesChange?(changes: Array<{ path: string; value: unknown }>): void;
+}
+
+export interface ReactotronPluginInstance extends ReactotronDisplay, ReactotronState {}
+
+/**
+ * Minimal interface for what we need from the MMKV instance.
+ * Avoids importing the full react-native-mmkv type at runtime.
+ */
+export interface MMKVInstance<T = ArrayBuffer | Uint8Array> {
+  set(key: string, value: string | number | boolean | T): void;
   getString(key: string): string | undefined;
   getNumber(key: string): number | undefined;
   getBoolean(key: string): boolean | undefined;
-  getBuffer(key: string): ArrayBuffer | undefined;
+  getBuffer(key: string): T | undefined;
   delete(key: string): void;
   contains(key: string): boolean;
   getAllKeys(): string[];
@@ -89,7 +119,7 @@ export interface MMKVInstance {
  * Tries getString first (with JSON parse for objects/arrays),
  * then falls back to getNumber and getBoolean.
  */
-export function readValue(storage: MMKVInstance, key: string): unknown {
+export function readValue(storage: MMKVInstance<unknown>, key: string): unknown {
   const str = storage.getString(key);
   if (str !== undefined) {
     return parseJsonSafe(str);
@@ -109,7 +139,7 @@ export function readValue(storage: MMKVInstance, key: string): unknown {
  * Falls back to getNumber → getBoolean if getString returns undefined.
  */
 export function readRawValue(
-  storage: MMKVInstance,
+  storage: MMKVInstance<unknown>,
   key: string
 ): string | number | boolean | undefined {
   const str = storage.getString(key);
@@ -127,9 +157,9 @@ export function readRawValue(
 /**
  * Plugin configuration options.
  */
-export interface MmkvPluginConfig {
+export interface MmkvPluginConfig<T = ArrayBuffer | Uint8Array> {
   /** The raw MMKV storage instance to wrap. */
-  storage: MMKVInstance;
+  storage: MMKVInstance<T>;
   /** Keys to never log in the timeline. */
   ignore?: string[];
   /** Whether to log GET operations in the timeline (default: false). */

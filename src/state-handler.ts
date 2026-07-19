@@ -29,7 +29,7 @@ interface ReactotronState {
 
 export interface StateHandlerConfig {
   namespace: string;
-  storage: MMKVInstance;
+  storage: MMKVInstance<unknown>;
 }
 
 /**
@@ -136,7 +136,7 @@ export function createStateHandler(
    * Handle an incoming Reactotron command.
    * Returns true if the command was handled by this handler.
    */
-  function onCommand(cmd: { type: string; payload?: any }): boolean {
+  function onCommand(cmd: { type: string; payload?: { path?: string | null; paths?: string[] } }): boolean {
     const reactotron = getReactotron();
     if (!reactotron) return false;
 
