@@ -29,7 +29,8 @@ yarn add reactotron-plugin-mmkv
 ### Peer Dependencies
 
 Make sure you have these installed:
-- `react-native-mmkv` >= 2.0.0
+- `react-native` >= 0.74.0 (requires New Architecture)
+- `react-native-mmkv` >= 3.0.0
 - `reactotron-core-client` >= 2.0.0 (comes with `reactotron-react-native`)
 
 ## Usage
