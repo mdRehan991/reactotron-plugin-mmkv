@@ -176,11 +176,11 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
       // --- CLEAR_ALL ----------------------------------------------
       else if (prop === 'clearAll') {
         proxiedMethod = function proxiedClearAll() {
-          const keyCount = target.getAllKeys().length;
+          const keys = target.getAllKeys();
           const result = original.call(target);
           log(OPERATION.CLEAR_ALL, undefined, {
-            value: { keysRemoved: keyCount },
-            preview: `removed ${keyCount} key(s)`,
+            value: { keysRemovedCount: keys.length, keysRemoved: keys },
+            preview: `removed ${keys.length} key(s)`,
           });
           return result;
         };

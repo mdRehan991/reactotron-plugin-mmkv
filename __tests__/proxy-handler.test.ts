@@ -222,7 +222,8 @@ describe('createProxiedStorage', () => {
       expect(mockReactotron.displays).toHaveLength(1);
       const log = mockReactotron.displays[0];
       expect(log.value.operation).toBe('CLEAR_ALL');
-      expect(log.value.keysRemoved).toBe(3);
+      expect(log.value.keysRemovedCount).toBe(3);
+      expect(log.value.keysRemoved).toEqual(['a', 'b', 'c']);
       expect(log.preview).toContain('3 key(s)');
     });
   });
