@@ -477,4 +477,159 @@ describe('createStateHandler', () => {
       });
     });
   });
+
+  describe('nested JSON strings and long string sublists', () => {
+    it('should deeply parse nested JSON stringified arrays like signature into real arrays for sublist view', () => {
+      const signatureData = [
+        { id: '00000357', title: 'Biar Mereka Cemburu' },
+        { id: 'adf431a9', title: 'Stream For Free' },
+      ];
+      const cacheObject = {
+        version: 2,
+        cachedAt: 1786808984437,
+        profileScope: 'guest',
+        linkToPage: '00000004',
+        signature: JSON.stringify(signatureData),
+      };
+
+      mockMMKV.set('home_cache:guest:00000004', JSON.stringify(cacheObject));
+
+      const fullState = handler._getFullState();
+      expect(fullState).toEqual({
+        'home_cache:guest:00000004': {
+          version: 2,
+          cachedAt: 1786808984437,
+          profileScope: 'guest',
+          linkToPage: '00000004',
+          signature: signatureData,
+        },
+      });
+
+      // Keys navigation into parsed signature array
+      const handled = handler.onCommand({
+        type: 'state.keys.request',
+        payload: { path: 'mmkv.home_cache:guest:00000004.signature' },
+      });
+      expect(handled).toBe(true);
+      expect(mockReactotron.keysResponses[0].keys).toEqual(['0', '1']);
+
+      // Values navigation into parsed array item
+      handler.onCommand({
+        type: 'state.values.request',
+        payload: { path: 'mmkv.home_cache:guest:00000004.signature.0' },
+      });
+      expect(mockReactotron.valuesResponses[0].value).toEqual({
+        id: '00000357',
+        title: 'Biar Mereka Cemburu',
+      });
+    });
+
+    it('should format long plain strings (> 100 chars) into sublist object with format, type, length, and value', () => {
+      const longUrl =
+        'https://mr.vrptv.ctrp.astro.com.my/astro/image/fetch/h_462,w_820,f_webp,q_auto:low,fl_lossy,m_1,ct_6/https://datastore.vrptv.ctrp.astro.com/content/images/5a235dJOUMH.jpg?token=abcdef1234567890';
+      expect(longUrl.length).toBeGreaterThan(100);
+
+      mockMMKV.set('banner_image', longUrl);
+
+      const fullState = handler._getFullState();
+      expect(fullState).toEqual({
+        banner_image: {
+          format: 'custom',
+          type: 'string',
+          length: longUrl.length,
+          value: longUrl,
+        },
+      });
+
+      // Keys navigation on long string sublist
+      handler.onCommand({
+        type: 'state.keys.request',
+        payload: { path: 'mmkv.banner_image' },
+      });
+      expect(mockReactotron.keysResponses[0].keys).toEqual([
+        'format',
+        'type',
+        'length',
+        'value',
+      ]);
+
+      // Values navigation for full value of long string
+      handler.onCommand({
+        type: 'state.values.request',
+        payload: { path: 'mmkv.banner_image.value' },
+      });
+      expect(mockReactotron.valuesResponses[0].value).toBe(longUrl);
+    });
+
+    it('should keep short plain strings (<= 100 chars) as regular primitive strings', () => {
+      mockMMKV.set('short_name', 'Hello World');
+
+      const fullState = handler._getFullState();
+      expect(fullState).toEqual({
+        short_name: 'Hello World',
+      });
+    });
+
+    it('should respect custom maxStringLength option', () => {
+      const customHandler = createStateHandler(
+        {
+          namespace: 'mmkv',
+          storage: mockMMKV,
+          maxStringLength: 20,
+        },
+        () => mockReactotron
+      );
+
+      const str30 = '123456789012345678901234567890'; // 30 chars > 20
+      mockMMKV.set('text', str30);
+
+      expect(customHandler._getFullState()).toEqual({
+        text: {
+          format: 'custom',
+          type: 'string',
+          length: 30,
+          value: str30,
+        },
+      });
+    });
+
+    it('should allow disabling string length sublist conversion when maxStringLength is false or 0', () => {
+      const customHandler = createStateHandler(
+        {
+          namespace: 'mmkv',
+          storage: mockMMKV,
+          maxStringLength: false,
+        },
+        () => mockReactotron
+      );
+
+      const longText = 'a'.repeat(200);
+      mockMMKV.set('long', longText);
+
+      expect(customHandler._getFullState()).toEqual({
+        long: longText,
+      });
+    });
+
+    it('should allow disabling deep JSON parsing when deepParseJson is false', () => {
+      const customHandler = createStateHandler(
+        {
+          namespace: 'mmkv',
+          storage: mockMMKV,
+          deepParseJson: false,
+          maxStringLength: false,
+        },
+        () => mockReactotron
+      );
+
+      const jsonStr = JSON.stringify({ a: 1 });
+      mockMMKV.set('raw_json', JSON.stringify({ nested: jsonStr }));
+
+      expect(customHandler._getFullState()).toEqual({
+        raw_json: {
+          nested: jsonStr,
+        },
+      });
+    });
+  });
 });

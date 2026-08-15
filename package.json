@@ -23,8 +23,8 @@
     "build:types": "tsc --project tsconfig.build.json --declaration --emitDeclarationOnly --outDir dist/typescript",
     "build": "npm run clean && npm run build:commonjs && npm run build:module && npm run build:types",
     "clean": "rm -rf dist",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "jest --no-watchman",
+    "test:watch": "jest --watch --no-watchman",
     "prepublishOnly": "npm run build && npm test",
     "lint": "tsc --noEmit"
   },

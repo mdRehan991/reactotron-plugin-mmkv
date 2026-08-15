@@ -249,6 +249,13 @@ const { plugin, storage } = mmkvPlugin({
   // Optional: namespace in State tab (default: 'mmkv')
   // Change this if you have multiple MMKV instances
   stateNamespace: 'mmkv',
+
+  // Optional: max string length before turning long strings into expandable sublists in State tab (default: 100)
+  // Set to 0 or false to disable
+  maxStringLength: 100,
+
+  // Optional: whether to recursively parse nested stringified JSON in objects and arrays for State tab (default: true)
+  deepParseJson: true,
 });
 ```
 
@@ -268,6 +275,8 @@ Creates the plugin and storage wrapper.
 | `logReads` | `boolean` | `false` | Log GET operations (proxy mode only) |
 | `logContains` | `boolean` | `false` | Log CONTAINS operations (proxy mode only) |
 | `stateNamespace` | `string` | `'mmkv'` | State tab namespace |
+| `maxStringLength` | `number \| false` | `100` | Max string length before formatting as sublist in State tab |
+| `deepParseJson` | `boolean` | `true` | Recursively parse nested JSON strings for State tab |
 
 **Returns:**
 

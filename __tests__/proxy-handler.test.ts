@@ -151,7 +151,7 @@ describe('createProxiedStorage', () => {
       expect(log.value.operation).toBe('GET');
       expect(log.value.key).toBe('token');
       expect(log.value.method).toBe('getString');
-      expect(log.important).toBe(false);
+      expect(log.important).toBe(true);
     });
 
     it('should NOT log GET when logReads is disabled', () => {

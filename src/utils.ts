@@ -28,6 +28,24 @@ export function truncate(value: unknown, maxLen = 80): string {
 }
 
 /**
+ * Options for formatting state values for Reactotron's State tab.
+ */
+export interface FormatValueOptions {
+  /**
+   * Maximum length for string values in the State tab before converting them
+   * into an expandable sublist object ({ format: 'custom', type: 'string', length, value }).
+   * Set to `0` or `false` to disable.
+   * @default 100
+   */
+  maxStringLength?: number | false;
+  /**
+   * Whether to recursively parse nested JSON strings (objects/arrays) into real objects/arrays.
+   * @default true
+   */
+  deepParseJson?: boolean;
+}
+
+/**
  * Safely parse a JSON string (objects or arrays), returning the parsed value or the raw string.
  * Retains primitive strings (e.g. "123", "true", "null") as strings.
  */
@@ -41,6 +59,87 @@ export function parseJsonSafe(raw: string): unknown {
     }
   }
   return raw;
+}
+
+/**
+ * Format a value for Reactotron state tree inspection.
+ * - Recursively parses nested JSON strings (objects/arrays) into real objects/arrays.
+ * - Transforms long strings exceeding maxStringLength into an expandable sublist object ({ format: 'custom', type: 'string', length, value }).
+ */
+export function formatValueForState(
+  value: unknown,
+  options: FormatValueOptions = {},
+  seen = new WeakSet<object>()
+): unknown {
+  const { maxStringLength = 100, deepParseJson = true } = options;
+
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    if (deepParseJson) {
+      const trimmed = value.trim();
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (typeof parsed === 'object' && parsed !== null) {
+            return formatValueForState(parsed, options, seen);
+          }
+        } catch {
+          // If JSON parsing fails, fall through to length check
+        }
+      }
+    }
+
+    if (
+      typeof maxStringLength === 'number' &&
+      maxStringLength > 0 &&
+      value.length > maxStringLength
+    ) {
+      return {
+        format: 'custom',
+        type: typeof value,
+        length: value.length,
+        value: value,
+      };
+    }
+
+    return value;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) {
+    return truncate(value);
+  }
+
+  if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(value)) {
+    return truncate(value);
+  }
+
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return '[Circular]';
+    seen.add(value);
+    return value.map((item) => formatValueForState(item, options, seen));
+  }
+
+  if (typeof value === 'object') {
+    if (seen.has(value)) return '[Circular]';
+    seen.add(value);
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      result[k] = formatValueForState(v, options, seen);
+    }
+    return result;
+  }
+
+  return String(value);
 }
 
 /**
@@ -204,4 +303,15 @@ export interface MmkvPluginConfig<T = ArrayBuffer | Uint8Array> {
   logContains?: boolean;
   /** Namespace used in the State tab (default: 'mmkv'). */
   stateNamespace?: string;
+  /**
+   * Maximum length for string values in the State tab before converting them into an expandable sublist object ({ format: 'custom', type: 'string', length, value }).
+   * Set to `0` or `false` to disable.
+   * @default 100
+   */
+  maxStringLength?: number | false;
+  /**
+   * Whether to recursively parse nested JSON strings in objects and arrays for the State tab.
+   * @default true
+   */
+  deepParseJson?: boolean;
 }

@@ -66,6 +66,8 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
     logReads = false,
     logContains = false,
     stateNamespace = 'mmkv',
+    maxStringLength = 100,
+    deepParseJson = true,
   } = config;
 
   // Mutable ref to the connected Reactotron instance
@@ -84,7 +86,12 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
 
   // --- State handler (State tab browsing) ---
   const stateHandler = createStateHandler(
-    { namespace: stateNamespace, storage: rawStorage },
+    {
+      namespace: stateNamespace,
+      storage: rawStorage,
+      maxStringLength,
+      deepParseJson,
+    },
     getReactotron
   );
 
@@ -148,6 +155,8 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
             logContains,
             ignoredKeys: ignore,
             stateNamespace,
+            maxStringLength,
+            deepParseJson,
           },
           currentKeys: rawStorage.getAllKeys(),
         },

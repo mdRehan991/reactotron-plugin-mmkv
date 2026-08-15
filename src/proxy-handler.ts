@@ -56,10 +56,7 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
       name: 'MMKV',
       value: { operation, key, ...extra.value },
       preview: previewParts.join('  '),
-      important:
-        operation !== OPERATION.GET &&
-        operation !== OPERATION.CONTAINS &&
-        operation !== OPERATION.GET_ALL_KEYS,
+      important: true,
     });
 
     if (

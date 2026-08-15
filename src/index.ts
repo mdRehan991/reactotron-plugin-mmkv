@@ -17,6 +17,8 @@ export {
   OPERATION,
   EMOJI,
   truncate,
+  type FormatValueOptions,
+  formatValueForState,
   parseJsonSafe,
   readValue,
   readRawValue,

@@ -9,7 +9,7 @@
  * reactotron-redux.
  */
 
-import { type MMKVInstance, readValue } from './utils';
+import { type MMKVInstance, readValue, formatValueForState } from './utils';
 
 /** Minimal Reactotron interface for state-related operations. */
 interface ReactotronState {
@@ -30,6 +30,8 @@ interface ReactotronState {
 export interface StateHandlerConfig {
   namespace: string;
   storage: MMKVInstance<unknown>;
+  maxStringLength?: number | false;
+  deepParseJson?: boolean;
 }
 
 /**
@@ -44,7 +46,12 @@ export function createStateHandler(
   config: StateHandlerConfig,
   getReactotron: () => ReactotronState | null
 ) {
-  const { namespace, storage } = config;
+  const {
+    namespace,
+    storage,
+    maxStringLength = 100,
+    deepParseJson = true,
+  } = config;
 
   let subscribedPaths: string[] = [];
   let listener: { remove: () => void } | null = null;
@@ -146,7 +153,11 @@ export function createStateHandler(
     const state: Record<string, unknown> = {};
     const keys = storage.getAllKeys();
     for (const key of keys) {
-      state[key] = readValue(storage, key);
+      const raw = readValue(storage, key);
+      state[key] = formatValueForState(raw, {
+        maxStringLength,
+        deepParseJson,
+      });
     }
     return state;
   }
@@ -197,7 +208,11 @@ export function createStateHandler(
       return { handled: true, result: undefined };
     }
 
-    let value: unknown = readValue(storage, mmkvKey);
+    const raw = readValue(storage, mmkvKey);
+    let value: unknown = formatValueForState(raw, {
+      maxStringLength,
+      deepParseJson,
+    });
 
     // Resolve nested path segments (for JSON objects stored in MMKV)
     for (let i = 1; i < parts.length; i++) {

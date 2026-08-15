@@ -251,6 +251,35 @@ describe('mmkvPlugin', () => {
     expect((pluginInstance.features as any).storageGetKeys()).toEqual(['key']);
   });
 
+  it('should forward maxStringLength and deepParseJson to state handler', () => {
+    const mockMMKV = createMockMMKV();
+    const signatureJson = JSON.stringify([{ id: '1', name: 'item' }]);
+    const longString = 'x'.repeat(150);
+
+    mockMMKV.set('cached_data', JSON.stringify({ signature: signatureJson, url: longString }));
+
+    const { plugin } = mmkvPlugin({
+      storage: mockMMKV,
+      maxStringLength: 100,
+      deepParseJson: true,
+    });
+
+    const mockReactotron = createMockReactotron();
+    const pluginInstance = plugin(mockReactotron);
+
+    expect(pluginInstance.features.mmkvGetState()).toEqual({
+      cached_data: {
+        signature: [{ id: '1', name: 'item' }],
+        url: {
+          format: 'custom',
+          type: 'string',
+          length: 150,
+          value: longString,
+        },
+      },
+    });
+  });
+
   describe('mode: basic', () => {
     it('should return the raw storage instance in basic mode', () => {
       const mockMMKV = createMockMMKV();
