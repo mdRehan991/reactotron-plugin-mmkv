@@ -15,6 +15,8 @@ export default function MmkvCard() {
   const [value, setValue] = useState('');
   const [getResult, setGetResult] = useState<string | null>(null);
 
+  const [isTesting, setIsTesting] = useState(false);
+
   const activeStorage = selectedMode === 'basic' ? basicStorage : proxyStorage;
 
   const handleSet = () => {
@@ -33,13 +35,20 @@ export default function MmkvCard() {
       Alert.alert('Error', 'Please enter a key');
       return;
     }
-    const exists = activeStorage.contains(key);
-    if (!exists) {
-      setGetResult('Key does not exist');
-      return;
+    try {
+      const exists = activeStorage.contains(key);
+      if (!exists) {
+        setGetResult('Key does not exist');
+        return;
+      }
+      const val =
+        activeStorage.getString(key) ??
+        activeStorage.getNumber(key) ??
+        activeStorage.getBoolean(key);
+      setGetResult(val !== undefined ? String(val) : 'null');
+    } catch (err: any) {
+      setGetResult(`Error: ${err?.message || 'Failed to read key'}`);
     }
-    const val = activeStorage.getString(key) ?? activeStorage.getNumber(key) ?? activeStorage.getBoolean(key);
-    setGetResult(val !== undefined ? String(val) : 'null');
   };
 
   const handleDelete = () => {
@@ -60,33 +69,38 @@ export default function MmkvCard() {
   };
 
   const runStressTest = async () => {
-    console.log(`Starting MMKV Reactotron plugin stress test on ${selectedMode} storage...`);
-    activeStorage.set('app.theme', 'dark');
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
-    
-    activeStorage.set('user.profile', JSON.stringify({ name: 'John Doe', age: 30 }));
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+    setIsTesting(true);
+    try {
+      console.log(`Starting MMKV Reactotron plugin stress test on ${selectedMode} storage...`);
+      activeStorage.set('app.theme', 'dark');
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    activeStorage.set('analytics.enabled', true);
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+      activeStorage.set('user.profile', JSON.stringify({ name: 'John Doe', age: 30 }));
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    activeStorage.getString('app.theme');
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+      activeStorage.set('analytics.enabled', true);
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    activeStorage.set('app.theme', 'light');
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+      activeStorage.getString('app.theme');
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    activeStorage.contains('user.profile');
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+      activeStorage.set('app.theme', 'light');
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    activeStorage.delete('analytics.enabled');
-    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+      activeStorage.contains('user.profile');
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    activeStorage.set('session.tokens', JSON.stringify({
-      access: 'jwt-access-token-12345',
-      refresh: 'jwt-refresh-token-abcde',
-      expiry: 1716300000000,
-    }));
+      activeStorage.delete('analytics.enabled');
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
+      activeStorage.set('session.tokens', JSON.stringify({
+        access: 'jwt-access-token-12345',
+        refresh: 'jwt-refresh-token-abcde',
+        expiry: 1716300000000,
+      }));
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
@@ -118,7 +132,7 @@ export default function MmkvCard() {
           </Text>
         </TouchableOpacity>
       </View>
-      
+
       <TextInput
         style={styles.input}
         placeholder="Enter Key (e.g. app.theme)"
@@ -157,9 +171,13 @@ export default function MmkvCard() {
         </View>
       )}
 
-      <View style={[styles.gridRow, { marginTop: 14 }]}>
-        <TouchableOpacity style={[styles.utilButton, styles.stressBtn]} onPress={runStressTest}>
-          <Text style={styles.buttonText}>⚡ Run Stress Test</Text>
+      <View style={styles.gridRowMargin}>
+        <TouchableOpacity
+          style={[styles.utilButton, styles.stressBtn, isTesting && styles.disabledBtn]}
+          onPress={runStressTest}
+          disabled={isTesting}
+        >
+          <Text style={styles.buttonText}>{isTesting ? '⏳ Running...' : '⚡ Run Stress Test'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.utilButton, styles.clearBtn]} onPress={handleClearAll}>
           <Text style={styles.buttonText}>🗑️ Clear All</Text>
@@ -272,6 +290,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  gridRowMargin: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+  },
   utilButton: {
     flex: 1,
     paddingVertical: 14,
@@ -281,6 +304,9 @@ const styles = StyleSheet.create({
   },
   stressBtn: {
     backgroundColor: '#5856d6',
+  },
+  disabledBtn: {
+    opacity: 0.6,
   },
   clearBtn: {
     backgroundColor: '#ff3b30',

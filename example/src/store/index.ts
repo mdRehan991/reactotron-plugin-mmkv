@@ -24,7 +24,7 @@ export const store = configureStore({
     counter: counterSlice.reducer,
   },
   enhancers: (getDefaultEnhancers) =>
-    getDefaultEnhancers().concat(Reactotron.createEnhancer()),
+    getDefaultEnhancers().concat((Reactotron as any).createEnhancer()),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

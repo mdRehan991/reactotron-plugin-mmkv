@@ -5,8 +5,8 @@ import {
   View,
   ScrollView,
   StatusBar,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import './config/reactotron'; // Side effect: configures and connects Reactotron
 import { store } from './store';

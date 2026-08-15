@@ -45,7 +45,7 @@ export default function StorageState() {
         })
       )}
 
-      <Text style={[styles.sectionHeader, { marginTop: 20 }]}>Proxy Storage ({proxyKeys.length} Keys)</Text>
+      <Text style={styles.proxySectionHeader}>Proxy Storage ({proxyKeys.length} Keys)</Text>
       {proxyKeys.length === 0 ? (
         <Text style={styles.emptyText}>Proxy storage is empty.</Text>
       ) : (
@@ -94,6 +94,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ff9500',
     marginTop: 10,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  proxySectionHeader: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#ff9500',
+    marginTop: 20,
     marginBottom: 6,
     letterSpacing: 0.5,
   },
