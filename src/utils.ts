@@ -160,6 +160,12 @@ export function readRawValue(
 export interface MmkvPluginConfig<T = ArrayBuffer | Uint8Array> {
   /** The raw MMKV storage instance to wrap. */
   storage: MMKVInstance<T>;
+  /**
+   * Integration mode:
+   * - 'basic' (default): zero-touch using addOnValueChangedListener for timeline writes and state tab. No proxy/monkey-patch required.
+   * - 'proxy': intercepts all operations (including reads and value diffs) using a JS Proxy wrapper.
+   */
+  mode?: 'basic' | 'proxy';
   /** Keys to never log in the timeline. */
   ignore?: string[];
   /** Whether to log GET operations in the timeline (default: false). */

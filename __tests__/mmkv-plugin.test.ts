@@ -248,4 +248,70 @@ describe('mmkvPlugin', () => {
 
     expect(mockReactotron.keysResponses[0].path).toBe('storage');
   });
+
+  describe('mode: basic', () => {
+    it('should return the raw storage instance in basic mode', () => {
+      const mockMMKV = createMockMMKV();
+      const { plugin, storage } = mmkvPlugin({ storage: mockMMKV, mode: 'basic' });
+
+      expect(storage).toBe(mockMMKV); // should be raw, not proxied
+    });
+
+    it('should log operations via listener after connect in basic mode', () => {
+      const mockMMKV = createMockMMKV();
+      const mockReactotron = createMockReactotron();
+      const { plugin, storage } = mmkvPlugin({ storage: mockMMKV, mode: 'basic' });
+
+      const pluginInstance = plugin(mockReactotron);
+      pluginInstance.onConnect();
+
+      // Clear connection messages
+      mockReactotron.displays.length = 0;
+
+      // Trigger SET
+      storage.set('my_key', 'my_val');
+      expect(mockReactotron.displays).toHaveLength(1);
+      expect(mockReactotron.displays[0].value).toEqual({
+        operation: 'SET',
+        key: 'my_key',
+        value: 'my_val',
+      });
+      expect(mockReactotron.displays[0].preview).toContain('SET');
+
+      // Trigger DELETE
+      storage.delete('my_key');
+      expect(mockReactotron.displays).toHaveLength(2);
+      expect(mockReactotron.displays[1].value).toEqual({
+        operation: 'DELETE',
+        key: 'my_key',
+      });
+      expect(mockReactotron.displays[1].preview).toContain('DELETE');
+    });
+
+    it('should not log operations in basic mode before connect or after disconnect', () => {
+      const mockMMKV = createMockMMKV();
+      const mockReactotron = createMockReactotron();
+      const { plugin, storage } = mmkvPlugin({ storage: mockMMKV, mode: 'basic' });
+
+      // Try set before connect
+      storage.set('a', '1');
+      expect(mockReactotron.displays).toHaveLength(0);
+
+      const pluginInstance = plugin(mockReactotron);
+      pluginInstance.onConnect();
+      mockReactotron.displays.length = 0;
+
+      // Try set after connect
+      storage.set('b', '2');
+      // We expect 1 message (the SET log) because we cleared the connection info display
+      expect(mockReactotron.displays).toHaveLength(1);
+      mockReactotron.displays.length = 0;
+
+      pluginInstance.onDisconnect();
+
+      // Try set after disconnect
+      storage.set('c', '3');
+      expect(mockReactotron.displays).toHaveLength(0);
+    });
+  });
 });

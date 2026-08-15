@@ -10,6 +10,7 @@ import {
   type MMKVInstance,
   type OperationType,
   type ReactotronDisplay,
+  type ReactotronState,
   OPERATION,
   EMOJI,
   SET_METHODS,
@@ -31,7 +32,7 @@ export interface ProxyHandlerConfig {
 export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
   rawStorage: MMKVInstance<T>,
   config: ProxyHandlerConfig,
-  getReactotron: () => ReactotronDisplay | null
+  getReactotron: () => (ReactotronDisplay & Partial<ReactotronState>) | null
 ): MMKVInstance<T> {
   const { ignore, logReads, logContains } = config;
 
@@ -60,13 +61,36 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
         operation !== OPERATION.CONTAINS &&
         operation !== OPERATION.GET_ALL_KEYS,
     });
+
+    if (
+      operation === OPERATION.SET ||
+      operation === OPERATION.UPDATE ||
+      operation === OPERATION.DELETE ||
+      operation === OPERATION.CLEAR_ALL
+    ) {
+      if ((reactotron as any).stateActionComplete) {
+        (reactotron as any).stateActionComplete(
+          `MMKV ${operation}`,
+          { key, ...extra.value }
+        );
+      } else if (reactotron.send) {
+        reactotron.send('state.action.complete', {
+          name: `MMKV ${operation}`,
+          action: { key, ...extra.value },
+        });
+      }
+    }
   }
 
   // ---------------------------------------------------------------
   // Proxy handler
   // ---------------------------------------------------------------
   const handler: ProxyHandler<MMKVInstance<T>> = {
-    get(target, prop: string, receiver) {
+    get(target, prop: string | symbol, receiver) {
+      if (typeof prop !== 'string') {
+        return Reflect.get(target, prop, receiver);
+      }
+
       const original = (target as unknown as Record<string, Function>)[prop];
 
       // Only intercept function calls

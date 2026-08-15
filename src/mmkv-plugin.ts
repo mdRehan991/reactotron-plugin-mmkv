@@ -12,6 +12,8 @@ import {
   type MmkvPluginConfig,
   type MMKVInstance,
   type ReactotronPluginInstance,
+  readValue,
+  truncate,
 } from './utils';
 import { createProxiedStorage } from './proxy-handler';
 import { createStateHandler } from './state-handler';
@@ -32,8 +34,9 @@ export interface MmkvPluginResult<T = ArrayBuffer | Uint8Array> {
   };
 
   /**
-   * The proxied MMKV instance — use this throughout your app.
-   * All operations are intercepted and logged to Reactotron.
+   * The proxied or raw MMKV instance — use this throughout your app.
+   * - In 'proxy' mode: intercepts all operations and logs them to Reactotron.
+   * - In 'basic' mode: returns the original raw instance directly.
    */
   storage: MMKVInstance<T>;
 }
@@ -58,6 +61,7 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
 ): MmkvPluginResult<T> {
   const {
     storage: rawStorage,
+    mode = 'proxy',
     ignore = [],
     logReads = false,
     logContains = false,
@@ -67,6 +71,9 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
   // Mutable ref to the connected Reactotron instance
   let reactotronRef: ReactotronPluginInstance | null = null;
   const getReactotron = () => reactotronRef;
+
+  // Track the change listener for timeline logging in 'listener' mode
+  let timelineListener: { remove: () => void } | null = null;
 
   // --- Proxy handler (timeline logging) ---
   const proxiedStorage = createProxiedStorage(
@@ -91,11 +98,48 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
       // Start listening for MMKV changes (for State tab subscriptions)
       stateHandler.startSubscriptions();
 
+      // Hook up timeline logging via listener if in basic mode
+      if (mode === 'basic') {
+        timelineListener = rawStorage.addOnValueChangedListener((changedKey: string) => {
+          if (ignore.includes(changedKey)) return;
+
+          const exists = rawStorage.contains(changedKey);
+          if (exists) {
+            const value = readValue(rawStorage, changedKey);
+            const valueDisplay = truncate(value);
+            reactotron.display({
+              name: 'MMKV',
+              value: { operation: 'SET', key: changedKey, value },
+              preview: `🟢 MMKV SET  "${changedKey}"  →  ${valueDisplay}`,
+              important: true,
+            });
+            if ((reactotron as any).stateActionComplete) {
+              (reactotron as any).stateActionComplete('MMKV SET', { key: changedKey, value });
+            } else if (reactotron.send) {
+              reactotron.send('state.action.complete', { name: 'MMKV SET', action: { key: changedKey, value } });
+            }
+          } else {
+            reactotron.display({
+              name: 'MMKV',
+              value: { operation: 'DELETE', key: changedKey },
+              preview: `🔴 MMKV DELETE  "${changedKey}"`,
+              important: true,
+            });
+            if ((reactotron as any).stateActionComplete) {
+              (reactotron as any).stateActionComplete('MMKV DELETE', { key: changedKey });
+            } else if (reactotron.send) {
+              reactotron.send('state.action.complete', { name: 'MMKV DELETE', action: { key: changedKey } });
+            }
+          }
+        });
+      }
+
       reactotron.display({
         name: 'MMKV',
         value: {
-          message: 'MMKV plugin connected — logging storage operations',
+          message: `MMKV plugin connected — using ${mode} mode`,
           config: {
+            mode,
             logReads,
             logContains,
             ignoredKeys: ignore,
@@ -103,7 +147,7 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
           },
           currentKeys: rawStorage.getAllKeys(),
         },
-        preview: '✅ MMKV plugin connected',
+        preview: `✅ MMKV plugin connected (${mode})`,
         important: true,
       });
     },
@@ -111,6 +155,10 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
     onDisconnect() {
       stateHandler.restoreMonkeyPatch(reactotronRef);
       stateHandler.stopSubscriptions();
+      if (timelineListener) {
+        timelineListener.remove();
+        timelineListener = null;
+      }
       reactotronRef = null;
     },
 
@@ -137,5 +185,7 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
     },
   });
 
-  return { plugin, storage: proxiedStorage };
+  const storageToReturn = mode === 'basic' ? rawStorage : proxiedStorage;
+
+  return { plugin, storage: storageToReturn };
 }
