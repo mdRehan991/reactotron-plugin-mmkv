@@ -20,10 +20,12 @@ This plugin fixes all of these by using a **Proxy-based interception** approach.
 
 ## Installation
 
+Install as a **dev dependency** since Reactotron is only used during development:
+
 ```bash
-npm install reactotron-plugin-mmkv
+npm install --save-dev reactotron-plugin-mmkv
 # or
-yarn add reactotron-plugin-mmkv
+yarn add -D reactotron-plugin-mmkv
 ```
 
 ### Peer Dependencies
@@ -43,6 +45,43 @@ This plugin offers two modes depending on your codebase size and debugging requi
 | **State Tab** | Yes (Full browsing & subscriptions) | Yes (Full browsing & subscriptions) |
 | **Integration** | **Zero-Touch** (Uses raw storage directly) | Requires wrapped instance export or monkey-patching |
 | **Timeline Noise** | Low | High (captures every get/contains/delete/clear) |
+
+---
+
+## DevDependency & Production Setup
+
+`reactotron-plugin-mmkv` should **always** be installed as a `devDependency` in `package.json` for **both** `basic` and `proxy` modes.
+
+| Mode | `package.json` | Release / Production Behavior |
+|---|---|---|
+| **`basic` Mode** | `devDependencies` | **Zero-Touch.** Your app imports raw MMKV directly. The plugin is only referenced inside `if (__DEV__)` in Reactotron config, so Metro bundler strips it entirely in release builds. |
+| **`proxy` Mode** | `devDependencies` | **Production Fallback.** In release builds (`!__DEV__`), fall back to exporting the raw MMKV instance so your app runs at full native speed without proxy overhead or dev dependency issues. |
+
+### Production-Safe Pattern for `proxy` Mode
+
+When using `proxy` mode, wrap the plugin initialization inside `if (__DEV__)` so release builds export raw MMKV directly:
+
+```typescript
+import { MMKV } from 'react-native-mmkv';
+
+const rawStorage = new MMKV({ id: 'mmkv.default' });
+let LocalStorage = rawStorage;
+
+if (__DEV__) {
+  const { mmkvPlugin } = require('reactotron-plugin-mmkv');
+  const Reactotron = require('reactotron-react-native').default;
+
+  const { plugin, storage } = mmkvPlugin({
+    storage: rawStorage,
+    mode: 'proxy',
+  });
+
+  Reactotron.use(plugin);
+  LocalStorage = storage;
+}
+
+export { LocalStorage };
+```
 
 ---
 
@@ -90,38 +129,41 @@ LocalStorage.set('theme', 'dark');
 
 This mode wraps your MMKV instance in a JavaScript `Proxy` to intercept every read, write, delete, and clear action.
 
-#### 1. Configure Reactotron
+#### 1. Configure Reactotron (Production-Safe)
 
 ```typescript
 import Reactotron from 'reactotron-react-native';
-import { mmkvPlugin } from 'reactotron-plugin-mmkv';
 import { MMKV } from 'react-native-mmkv';
 
-// Create your raw instance
 const rawStorage = new MMKV({ id: 'mmkv.default' });
+let LocalStorage = rawStorage;
 
-// Create the plugin — returns the plugin + proxied storage wrapper
-const { plugin, storage } = mmkvPlugin({
-  storage: rawStorage,
-  mode: 'proxy', // Default
-});
+if (__DEV__) {
+  const { mmkvPlugin } = require('reactotron-plugin-mmkv');
 
-Reactotron
-  .configure()
-  .useReactNative()
-  .use(plugin)
-  .connect();
+  const { plugin, storage } = mmkvPlugin({
+    storage: rawStorage,
+    mode: 'proxy', // Default
+  });
 
-// Export the wrapped storage instance
-export { storage as LocalStorage };
+  Reactotron
+    .configure()
+    .useReactNative()
+    .use(plugin)
+    .connect();
+
+  LocalStorage = storage;
+}
+
+export { LocalStorage };
 ```
 
 #### 2. App Usage
 
-You must import and use the wrapped `LocalStorage` exported from the Reactotron config file to ensure all actions are intercepted:
+You must import and use the exported `LocalStorage` from your storage/Reactotron file:
 
 ```typescript
-import { LocalStorage } from './path/to/reactotron';
+import { LocalStorage } from './path/to/storage';
 
 // Intercepts reads, writes, and shows old vs new diffs in timeline!
 LocalStorage.set('theme', 'dark'); 
