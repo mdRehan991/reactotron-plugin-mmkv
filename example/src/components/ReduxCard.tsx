@@ -14,13 +14,13 @@ export default function ReduxCard() {
       <View style={styles.buttonRow}>
         <TouchableOpacity
           style={[styles.button, styles.incrementBtn]}
-          onPress={() => dispatch(increment())}
+          onPress={() => dispatch(increment(1))}
         >
           <Text style={styles.buttonText}>INCREMENT</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, styles.decrementBtn]}
-          onPress={() => dispatch(decrement())}
+          onPress={() => dispatch(decrement(1))}
         >
           <Text style={styles.buttonText}>DECREMENT</Text>
         </TouchableOpacity>

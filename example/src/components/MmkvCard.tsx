@@ -7,19 +7,22 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { storage } from '../services/storage';
+import { basicStorage, proxyStorage } from '../services/storage';
 
 export default function MmkvCard() {
+  const [selectedMode, setSelectedMode] = useState<'basic' | 'proxy'>('basic');
   const [key, setKey] = useState('');
   const [value, setValue] = useState('');
   const [getResult, setGetResult] = useState<string | null>(null);
+
+  const activeStorage = selectedMode === 'basic' ? basicStorage : proxyStorage;
 
   const handleSet = () => {
     if (!key.trim()) {
       Alert.alert('Error', 'Please enter a key');
       return;
     }
-    storage.set(key, value);
+    activeStorage.set(key, value);
     setKey('');
     setValue('');
     setGetResult(null);
@@ -30,12 +33,12 @@ export default function MmkvCard() {
       Alert.alert('Error', 'Please enter a key');
       return;
     }
-    const exists = storage.contains(key);
+    const exists = activeStorage.contains(key);
     if (!exists) {
       setGetResult('Key does not exist');
       return;
     }
-    const val = storage.getString(key) ?? storage.getNumber(key) ?? storage.getBoolean(key);
+    const val = activeStorage.getString(key) ?? activeStorage.getNumber(key) ?? activeStorage.getBoolean(key);
     setGetResult(val !== undefined ? String(val) : 'null');
   };
 
@@ -44,42 +47,42 @@ export default function MmkvCard() {
       Alert.alert('Error', 'Please enter a key');
       return;
     }
-    storage.delete(key);
+    activeStorage.delete(key);
     setKey('');
     setGetResult(null);
   };
 
   const handleClearAll = () => {
-    storage.clearAll();
+    activeStorage.clearAll();
     setKey('');
     setValue('');
     setGetResult(null);
   };
 
   const runStressTest = async () => {
-    console.log('Starting MMKV Reactotron plugin stress test...');
-    storage.set('app.theme', 'dark');
+    console.log(`Starting MMKV Reactotron plugin stress test on ${selectedMode} storage...`);
+    activeStorage.set('app.theme', 'dark');
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
     
-    storage.set('user.profile', JSON.stringify({ name: 'John Doe', age: 30 }));
+    activeStorage.set('user.profile', JSON.stringify({ name: 'John Doe', age: 30 }));
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    storage.set('analytics.enabled', true);
+    activeStorage.set('analytics.enabled', true);
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    storage.getString('app.theme');
+    activeStorage.getString('app.theme');
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    storage.set('app.theme', 'light');
+    activeStorage.set('app.theme', 'light');
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    storage.contains('user.profile');
+    activeStorage.contains('user.profile');
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    storage.delete('analytics.enabled');
+    activeStorage.delete('analytics.enabled');
     await new Promise<void>((resolve) => setTimeout(resolve, 300));
 
-    storage.set('session.tokens', JSON.stringify({
+    activeStorage.set('session.tokens', JSON.stringify({
       access: 'jwt-access-token-12345',
       refresh: 'jwt-refresh-token-abcde',
       expiry: 1716300000000,
@@ -88,7 +91,33 @@ export default function MmkvCard() {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>MMKV Key-Value Operations</Text>
+      <Text style={styles.cardTitle}>MMKV Operations</Text>
+
+      {/* Target Storage Selector */}
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity
+          style={[styles.toggleBtn, selectedMode === 'basic' && styles.toggleBtnActive]}
+          onPress={() => {
+            setSelectedMode('basic');
+            setGetResult(null);
+          }}
+        >
+          <Text style={[styles.toggleBtnText, selectedMode === 'basic' && styles.toggleBtnTextActive]}>
+            Basic (mode: basic)
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleBtn, selectedMode === 'proxy' && styles.toggleBtnActive]}
+          onPress={() => {
+            setSelectedMode('proxy');
+            setGetResult(null);
+          }}
+        >
+          <Text style={[styles.toggleBtnText, selectedMode === 'proxy' && styles.toggleBtnTextActive]}>
+            Proxy (mode: proxy)
+          </Text>
+        </TouchableOpacity>
+      </View>
       
       <TextInput
         style={styles.input}
@@ -158,6 +187,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     marginBottom: 14,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#121214',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 16,
+    gap: 4,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleBtnActive: {
+    backgroundColor: '#ff9500',
+  },
+  toggleBtnText: {
+    color: '#8a8a93',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  toggleBtnTextActive: {
+    color: '#ffffff',
   },
   input: {
     backgroundColor: '#121214',

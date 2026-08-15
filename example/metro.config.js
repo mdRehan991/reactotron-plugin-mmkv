@@ -12,18 +12,9 @@ const root = path.resolve(__dirname, '..');
 const config = {
   watchFolders: [root],
   resolver: {
-    extraNodeModules: new Proxy(
-      {},
-      {
-        get: (target, name) => {
-          if (name === 'reactotron-plugin-mmkv') {
-            return root;
-          }
-          // Redirect example's peer dependencies to local example node_modules
-          return path.join(__dirname, 'node_modules', name);
-        },
-      }
-    ),
+    extraNodeModules: {
+      'reactotron-plugin-mmkv': path.resolve(root, 'src'),
+    },
   },
 };
 

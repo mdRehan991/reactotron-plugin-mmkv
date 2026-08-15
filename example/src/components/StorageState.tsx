@@ -1,27 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { storage } from '../services/storage';
+import { rawBasicStorage, rawProxyStorage } from '../services/storage';
 
 export default function StorageState() {
-  const [keysList, setKeysList] = useState<string[]>(storage.getAllKeys());
+  const [basicKeys, setBasicKeys] = useState<string[]>(rawBasicStorage.getAllKeys());
+  const [proxyKeys, setProxyKeys] = useState<string[]>(rawProxyStorage.getAllKeys());
 
   useEffect(() => {
-    const listener = storage.addOnValueChangedListener(() => {
-      setKeysList(storage.getAllKeys());
+    const basicListener = rawBasicStorage.addOnValueChangedListener(() => {
+      setBasicKeys(rawBasicStorage.getAllKeys());
     });
-    return () => listener.remove();
+    const proxyListener = rawProxyStorage.addOnValueChangedListener(() => {
+      setProxyKeys(rawProxyStorage.getAllKeys());
+    });
+    return () => {
+      basicListener.remove();
+      proxyListener.remove();
+    };
   }, []);
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Active MMKV Storage State ({keysList.length} Keys)</Text>
-      {keysList.length === 0 ? (
-        <Text style={styles.emptyText}>Storage is currently empty. Use SET or run a stress test to add values.</Text>
+      <Text style={styles.cardTitle}>Active MMKV Storage State</Text>
+
+      <Text style={styles.sectionHeader}>Basic Storage ({basicKeys.length} Keys)</Text>
+      {basicKeys.length === 0 ? (
+        <Text style={styles.emptyText}>Basic storage is empty.</Text>
       ) : (
-        keysList.map((k) => {
+        basicKeys.map((k) => {
           let displayVal = 'Unknown type';
           try {
-            displayVal = storage.getString(k) ?? String(storage.getNumber(k) ?? storage.getBoolean(k));
+            displayVal = rawBasicStorage.getString(k) ?? String(rawBasicStorage.getNumber(k) ?? rawBasicStorage.getBoolean(k));
+          } catch {
+            displayVal = 'Error reading value';
+          }
+          return (
+            <View key={k} style={styles.listItem}>
+              <Text style={styles.listKey}>{k}</Text>
+              <Text style={styles.listValue} numberOfLines={1}>
+                {displayVal}
+              </Text>
+            </View>
+          );
+        })
+      )}
+
+      <Text style={[styles.sectionHeader, { marginTop: 20 }]}>Proxy Storage ({proxyKeys.length} Keys)</Text>
+      {proxyKeys.length === 0 ? (
+        <Text style={styles.emptyText}>Proxy storage is empty.</Text>
+      ) : (
+        proxyKeys.map((k) => {
+          let displayVal = 'Unknown type';
+          try {
+            displayVal = rawProxyStorage.getString(k) ?? String(rawProxyStorage.getNumber(k) ?? rawProxyStorage.getBoolean(k));
           } catch {
             displayVal = 'Error reading value';
           }
@@ -57,6 +88,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     marginBottom: 14,
+  },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#ff9500',
+    marginTop: 10,
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   listItem: {
     flexDirection: 'row',
