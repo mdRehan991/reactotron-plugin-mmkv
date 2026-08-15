@@ -100,6 +100,10 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
 
       // Hook up timeline logging via listener if in basic mode
       if (mode === 'basic') {
+        if (timelineListener) {
+          timelineListener.remove();
+          timelineListener = null;
+        }
         timelineListener = rawStorage.addOnValueChangedListener((changedKey: string) => {
           if (ignore.includes(changedKey)) return;
 
@@ -169,7 +173,7 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
     features: {
       /**
        * Get the full MMKV state as an object.
-       * Available as `Reactotron.mmkvGetState()` after plugin registration.
+       * Available as `Reactotron.mmkvGetState()` (or custom `Reactotron.[namespace]GetState()`) after plugin registration.
        */
       mmkvGetState: () => {
         return stateHandler._getFullState();
@@ -177,11 +181,18 @@ export function mmkvPlugin<T = ArrayBuffer | Uint8Array>(
 
       /**
        * Get the list of all MMKV keys.
-       * Available as `Reactotron.mmkvGetKeys()` after plugin registration.
+       * Available as `Reactotron.mmkvGetKeys()` (or custom `Reactotron.[namespace]GetKeys()`) after plugin registration.
        */
       mmkvGetKeys: () => {
         return rawStorage.getAllKeys();
       },
+
+      ...(stateNamespace !== 'mmkv'
+        ? {
+            [`${stateNamespace}GetState`]: () => stateHandler._getFullState(),
+            [`${stateNamespace}GetKeys`]: () => rawStorage.getAllKeys(),
+          }
+        : {}),
     },
   });
 

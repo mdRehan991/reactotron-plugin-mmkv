@@ -247,6 +247,8 @@ describe('mmkvPlugin', () => {
     });
 
     expect(mockReactotron.keysResponses[0].path).toBe('storage');
+    expect((pluginInstance.features as any).storageGetState()).toEqual({ key: 'val' });
+    expect((pluginInstance.features as any).storageGetKeys()).toEqual(['key']);
   });
 
   describe('mode: basic', () => {

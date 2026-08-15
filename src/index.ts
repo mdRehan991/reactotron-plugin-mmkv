@@ -6,9 +6,21 @@
  * - State tab integration to browse MMKV data alongside Redux state
  */
 
-export { mmkvPlugin } from './mmkv-plugin';
-export { type MmkvPluginResult } from './mmkv-plugin';
-export { type MmkvPluginConfig, type MMKVInstance } from './utils';
+export { mmkvPlugin, type MmkvPluginResult } from './mmkv-plugin';
+export { createProxiedStorage, type ProxyHandlerConfig } from './proxy-handler';
+export { createStateHandler, type StateHandlerConfig } from './state-handler';
+export {
+  type MmkvPluginConfig,
+  type MMKVInstance,
+  type OperationType,
+  type ReactotronPluginInstance,
+  OPERATION,
+  EMOJI,
+  truncate,
+  parseJsonSafe,
+  readValue,
+  readRawValue,
+} from './utils';
 
 // Default export for convenience
 import { mmkvPlugin } from './mmkv-plugin';

@@ -54,9 +54,9 @@ export function createStateHandler(
   // Tracks if another state plugin (like Redux or MobX-State-Tree) responded to the root keys request.
   // If true, we merge MMKV into their response. If false, we respond after a 30ms fallback delay.
   let peerKeysResponded = false;
-
-  // Tracks if another state plugin responded to the root values request.
   let peerValuesResponded = false;
+  let keysTimeout: ReturnType<typeof setTimeout> | null = null;
+  let valuesTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Caches the last known state of other plugins (e.g. Redux state tree).
   // We use this to merge MMKV updates with the rest of the application state,
@@ -125,6 +125,14 @@ export function createStateHandler(
   }
 
   function restoreMonkeyPatch(reactotron: any) {
+    if (keysTimeout) {
+      clearTimeout(keysTimeout);
+      keysTimeout = null;
+    }
+    if (valuesTimeout) {
+      clearTimeout(valuesTimeout);
+      valuesTimeout = null;
+    }
     if (originalSend && reactotron) {
       reactotron.send = originalSend;
       originalSend = null;
@@ -235,7 +243,9 @@ export function createStateHandler(
           // If another plugin responds, our monkey-patch will merge it.
           if (!path) {
             peerKeysResponded = false;
-            setTimeout(() => {
+            if (keysTimeout) clearTimeout(keysTimeout);
+            keysTimeout = setTimeout(() => {
+              keysTimeout = null;
               if (!peerKeysResponded) {
                 reactotron.send('state.keys.response', { path: null, keys: [namespace], valid: true });
               }
@@ -263,7 +273,9 @@ export function createStateHandler(
           // If another plugin responds, our monkey-patch will merge it.
           if (!path) {
             peerValuesResponded = false;
-            setTimeout(() => {
+            if (valuesTimeout) clearTimeout(valuesTimeout);
+            valuesTimeout = setTimeout(() => {
+              valuesTimeout = null;
               if (!peerValuesResponded) {
                 reactotron.send('state.values.response', { path: null, value: { [namespace]: getFullState() }, valid: true });
               }

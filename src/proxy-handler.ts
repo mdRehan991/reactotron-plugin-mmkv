@@ -85,10 +85,16 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
   // ---------------------------------------------------------------
   // Proxy handler
   // ---------------------------------------------------------------
+  const methodCache = new Map<string | symbol, Function>();
+
   const handler: ProxyHandler<MMKVInstance<T>> = {
     get(target, prop: string | symbol, receiver) {
       if (typeof prop !== 'string') {
         return Reflect.get(target, prop, receiver);
+      }
+
+      if (methodCache.has(prop)) {
+        return methodCache.get(prop)!;
       }
 
       const original = (target as unknown as Record<string, Function>)[prop];
@@ -98,9 +104,11 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
         return Reflect.get(target, prop, receiver);
       }
 
+      let proxiedMethod: Function;
+
       // --- SET / UPDATE -------------------------------------------
       if (SET_METHODS.has(prop)) {
-        return function proxiedSet(
+        proxiedMethod = function proxiedSet(
           key: string,
           value: string | number | boolean | T
         ) {
@@ -129,10 +137,9 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
           return original.call(target, key, value);
         };
       }
-
       // --- GET ----------------------------------------------------
-      if (GET_METHODS.has(prop)) {
-        return function proxiedGet(key: string) {
+      else if (GET_METHODS.has(prop)) {
+        proxiedMethod = function proxiedGet(key: string) {
           const result = original.call(target, key);
           if (logReads && !ignore.includes(key)) {
             log(OPERATION.GET, key, {
@@ -146,10 +153,9 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
           return result;
         };
       }
-
       // --- DELETE -------------------------------------------------
-      if (prop === 'delete') {
-        return function proxiedDelete(key: string) {
+      else if (prop === 'delete') {
+        proxiedMethod = function proxiedDelete(key: string) {
           if (!ignore.includes(key)) {
             const oldValue = readRawValue(target, key);
             const result = original.call(target, key);
@@ -167,10 +173,9 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
           return original.call(target, key);
         };
       }
-
       // --- CLEAR_ALL ----------------------------------------------
-      if (prop === 'clearAll') {
-        return function proxiedClearAll() {
+      else if (prop === 'clearAll') {
+        proxiedMethod = function proxiedClearAll() {
           const keyCount = target.getAllKeys().length;
           const result = original.call(target);
           log(OPERATION.CLEAR_ALL, undefined, {
@@ -180,10 +185,9 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
           return result;
         };
       }
-
       // --- CONTAINS -----------------------------------------------
-      if (prop === 'contains') {
-        return function proxiedContains(key: string) {
+      else if (prop === 'contains') {
+        proxiedMethod = function proxiedContains(key: string) {
           const result = original.call(target, key);
           if (logContains && !ignore.includes(key)) {
             log(OPERATION.CONTAINS, key, {
@@ -194,10 +198,9 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
           return result;
         };
       }
-
       // --- GET_ALL_KEYS -------------------------------------------
-      if (prop === 'getAllKeys') {
-        return function proxiedGetAllKeys() {
+      else if (prop === 'getAllKeys') {
+        proxiedMethod = function proxiedGetAllKeys() {
           const result = original.call(target);
           if (logReads) {
             log(OPERATION.GET_ALL_KEYS, undefined, {
@@ -208,9 +211,13 @@ export function createProxiedStorage<T = ArrayBuffer | Uint8Array>(
           return result;
         };
       }
-
       // --- Pass-through -------------------------------------------
-      return original.bind(target);
+      else {
+        proxiedMethod = original.bind(target);
+      }
+
+      methodCache.set(prop, proxiedMethod);
+      return proxiedMethod;
     },
   };
 

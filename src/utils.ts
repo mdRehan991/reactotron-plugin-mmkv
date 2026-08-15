@@ -7,19 +7,40 @@
  */
 export function truncate(value: unknown, maxLen = 80): string {
   if (value === null || value === undefined) return String(value);
-  const str = typeof value === 'string' ? value : JSON.stringify(value);
-  return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+  if (typeof value === 'string') {
+    return value.length > maxLen ? value.slice(0, maxLen) + '…' : value;
+  }
+  if (typeof value === 'function' || typeof value === 'symbol') {
+    return String(value);
+  }
+  if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) {
+    return `<ArrayBuffer ${value.byteLength} bytes>`;
+  }
+  if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(value)) {
+    return `<${value.constructor.name} ${value.byteLength} bytes>`;
+  }
+  try {
+    const str = JSON.stringify(value) ?? String(value);
+    return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+  } catch {
+    return String(value);
+  }
 }
 
 /**
- * Safely parse a JSON string, returning the parsed value or the raw string.
+ * Safely parse a JSON string (objects or arrays), returning the parsed value or the raw string.
+ * Retains primitive strings (e.g. "123", "true", "null") as strings.
  */
 export function parseJsonSafe(raw: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw;
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
   }
+  return raw;
 }
 
 /**
@@ -116,10 +137,13 @@ export interface MMKVInstance<T = ArrayBuffer | Uint8Array> {
 
 /**
  * Read any value from MMKV by trying each typed getter.
+ * Checks contains() first to avoid unnecessary getter calls.
  * Tries getString first (with JSON parse for objects/arrays),
- * then falls back to getNumber and getBoolean.
+ * then falls back to getNumber, getBoolean, and getBuffer.
  */
 export function readValue(storage: MMKVInstance<unknown>, key: string): unknown {
+  if (!storage.contains(key)) return undefined;
+
   const str = storage.getString(key);
   if (str !== undefined) {
     return parseJsonSafe(str);
@@ -131,17 +155,23 @@ export function readValue(storage: MMKVInstance<unknown>, key: string): unknown 
   const bool = storage.getBoolean(key);
   if (bool !== undefined) return bool;
 
+  const buf = storage.getBuffer(key);
+  if (buf !== undefined) return truncate(buf);
+
   return undefined;
 }
 
 /**
  * Read the raw string value from MMKV (without JSON parsing).
+ * Checks contains() first to avoid unnecessary getter calls.
  * Falls back to getNumber → getBoolean if getString returns undefined.
  */
 export function readRawValue(
   storage: MMKVInstance<unknown>,
   key: string
 ): string | number | boolean | undefined {
+  if (!storage.contains(key)) return undefined;
+
   const str = storage.getString(key);
   if (str !== undefined) return str;
 

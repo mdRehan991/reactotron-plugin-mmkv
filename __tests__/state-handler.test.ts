@@ -466,5 +466,15 @@ describe('createStateHandler', () => {
         mmkv: { theme: 'dark' },
       });
     });
+
+    it('should keep primitive strings like "123" or "true" as strings', () => {
+      mockMMKV.set('code', '123');
+      mockMMKV.set('flagStr', 'true');
+
+      expect(handler._getFullState()).toEqual({
+        code: '123',
+        flagStr: 'true',
+      });
+    });
   });
 });

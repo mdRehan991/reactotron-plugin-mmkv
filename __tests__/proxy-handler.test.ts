@@ -331,4 +331,12 @@ describe('createProxiedStorage', () => {
       expect(result).toBe('val');
     });
   });
+
+  describe('method caching and referential equality', () => {
+    it('should return the same method reference on repeated property access', () => {
+      expect(storage.set).toBe(storage.set);
+      expect(storage.getString).toBe(storage.getString);
+      expect(storage.delete).toBe(storage.delete);
+    });
+  });
 });
