@@ -1,6 +1,6 @@
 {
   "name": "reactotron-plugin-mmkv",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Full-featured Reactotron plugin for react-native-mmkv — operation logging + State tab integration",
   "main": "dist/commonjs/index.js",
   "module": "dist/module/index.js",
@@ -43,8 +43,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mohdrehan/reactotron-plugin-mmkv"
+    "url": "git+https://github.com/mdRehan991/reactotron-plugin-mmkv.git"
   },
+  "bugs": {
+    "url": "https://github.com/mdRehan991/reactotron-plugin-mmkv/issues"
+  },
+  "homepage": "https://github.com/mdRehan991/reactotron-plugin-mmkv#readme",
   "peerDependencies": {
     "react-native": ">=0.74.0",
     "react-native-mmkv": ">=3.0.0",

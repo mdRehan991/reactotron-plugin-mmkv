@@ -203,7 +203,7 @@ Reactotron
 
 ```bash
 # Clone the repo
-git clone https://github.com/mohdrehan/reactotron-plugin-mmkv
+git clone https://github.com/mdRehan991/reactotron-plugin-mmkv.git
 
 # Install dependencies
 npm install
