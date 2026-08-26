@@ -1,6 +1,6 @@
 {
   "name": "reactotron-plugin-mmkv",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Full-featured Reactotron plugin for react-native-mmkv — operation logging + State tab integration",
   "main": "dist/commonjs/index.js",
   "module": "dist/module/index.js",
